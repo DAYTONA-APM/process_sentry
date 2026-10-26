@@ -10,12 +10,11 @@
 
 int is_numeric_dir(const char *name)
 {
-	int PIDs;
 	const char *p; /* the current character under evaluation */
 
-	if (!name || name = "\0") {
+	if (!name || *name == '\0') {
 		fprintf(stderr, "no name provided\n");
-		return -1; /* the mem_err option */
+		return 0; /* the mem_err option */
 	}
 
 	p = name;
@@ -78,6 +77,7 @@ int crawl_proc_pids(pid_t *pid_list, int max_pids)
 				break;
 			}
 			pid_list[count] = (pid_t)atoi(entry->d_name);
+			count++;
 		}
 	}
 

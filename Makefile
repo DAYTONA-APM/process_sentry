@@ -1,19 +1,29 @@
 CC ?= gcc
-CFLAGS ?= -Wall -Wextra -pedantic -std=c99 -Iinclude -D_POSIX_C_SOURCE=200809L
-TARGET = proc-sentry
+CFLAGS ?= -Wall -Wextra -pedantic -ansi -Iinclude -D_POSIX_C_SOURCE=200809L
 
-SRCS = $(wildcard src/*.c)
+SRCS = src/crawler.c src/exe_audit.c
 OBJS = $(SRCS:.c=.o)
+
+TARGET = proc-sentry
+TEST_CRAWLER = test_crawler
+TEST_EXE = test_exe
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) src/main.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -f $(OBJS) $(TARGET)
+# Test targets
+test_crawler: tests/test_crawler.c src/crawler.o
+	$(CC) $(CFLAGS) -o $@ $^
 
-.PHONY: all clean
+test_exe: tests/test_exe.c src/exe_audit.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+clean:
+	rm -f src/*.o tests/*.o $(TARGET) $(TEST_CRAWLER) $(TEST_EXE)
+
+.PHONY: all clean test_crawler test_exe
