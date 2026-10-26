@@ -1,0 +1,14 @@
+# Object files and dependencies
+*.o
+*.d
+
+# Binaries
+bin/
+proc-sentry
+
+# Editor & OS artifacts
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
