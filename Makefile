@@ -1,28 +1,27 @@
-CC ?= gcc
-CFLAGS ?= -Wall -Wextra -pedantic -ansi -Iinclude -D_POSIX_C_SOURCE=200809L
+CC = cc
+CFLAGS = -Wall -Wextra -pedantic -ansi -Iinclude -D_POSIX_C_SOURCE=200809L
 
-SRCS = src/crawler.c src/exe_audit.c
-OBJS = $(SRCS:.c=.o)
+all: proc-sentry
 
-TARGET = proc-sentry
-TEST_CRAWLER = test_crawler
-TEST_EXE = test_exe
+src/crawler.o: src/crawler.c include/crawler.h
+	$(CC) $(CFLAGS) -c src/crawler.c -o src/crawler.o
 
-all: $(TARGET)
+src/exe_audit.o: src/exe_audit.c include/exe_audit.h
+	$(CC) $(CFLAGS) -c src/exe_audit.c -o src/exe_audit.o
 
-$(TARGET): $(OBJS) src/main.o
-	$(CC) $(CFLAGS) -o $@ $^
-
-src/%.o: src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+src/maps_audit.o: src/maps_audit.c include/maps_audit.h
+	$(CC) $(CFLAGS) -c src/maps_audit.c -o src/maps_audit.o
 
 test_crawler: tests/test_crawler.c src/crawler.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) tests/test_crawler.c src/crawler.o -o test_crawler
 
 test_exe: tests/test_exe.c src/exe_audit.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) tests/test_exe.c src/exe_audit.o -o test_exe
+
+test_maps: tests/test_maps.c src/maps_audit.o
+	$(CC) $(CFLAGS) tests/test_maps.c src/maps_audit.o -o test_maps
 
 clean:
-	rm -f src/*.o tests/*.o $(TARGET) $(TEST_CRAWLER) $(TEST_EXE) /tmp/proc_sentry_dummy
+	rm -f src/*.o tests/*.o proc-sentry test_crawler test_exe test_maps /tmp/proc_sentry_dummy
 
-.PHONY: all clean test_crawler test_exe
+.PHONY: all clean
