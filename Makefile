@@ -1,7 +1,12 @@
 CC = cc
 CFLAGS = -Wall -Wextra -pedantic -ansi -Iinclude -D_POSIX_C_SOURCE=200809L
 
+OBJS = src/crawler.o src/exe_audit.o src/maps_audit.o
+
 all: proc-sentry
+
+proc-sentry: src/main.c $(OBJS)
+	$(CC) $(CFLAGS) src/main.c $(OBJS) -o proc-sentry
 
 src/crawler.o: src/crawler.c include/crawler.h
 	$(CC) $(CFLAGS) -c src/crawler.c -o src/crawler.o
