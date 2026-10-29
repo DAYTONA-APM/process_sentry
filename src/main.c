@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <signal.h>
 #include <sys/types.h>
 
 #include "crawler.h"
@@ -10,6 +12,7 @@
 
 #define	MAX_PROC_IDS 4096
 #define PATH_BUF_SIZE 1024
+#define DEFAULT_INTERVAL 2
 
 /* building blocks:	
  * 		- crawl_proc_pids = finds all numerical process IDs in /proc
@@ -46,7 +49,17 @@
  * print the summary fields
  */
 
-int main(void)
+static int keep_running = 1;
+
+static void on_sigint(int sig)
+{
+	(void)sig;
+	keep_running = 0;
+}
+
+
+/* performs a full sweep and prints the table */
+static int run_audit(void)
 {	
 	pid_t pids[MAX_PROC_IDS];
 	int total_proc_ids;
@@ -100,8 +113,8 @@ int main(void)
 		/* kernel threads & fast-exiting processes may not flag */
 		if (exe_status < 0 && maps_mask < 0 && env_mask < 0) {
 			skip_count++;
-			printf("%-7ld  %-12s  %-10s  %-12s  %s\n",
-                   (long)pid, "[SKIP]", "N/A", "N/A", "<kernel/exited>");
+			printf("%-7ld  %-12s  %-10s  %-12s  %-12s  %s\n",
+                   (long)pid, "[SKIP]", "N/A", "N/A", "N/A", "<kernel/exited>");
 			continue;
 		}
 
@@ -178,4 +191,44 @@ int main(void)
 
 
 	return flagged_count;
+}
+
+int main(int argc, char **argv)
+{
+    int interval = 0;
+
+    /*
+     * Direct argument check:
+     * If argv[1] is "-w", read interval (e.g., ./proc-sentry -w 2)
+     */
+    if (argc >= 2 && strcmp(argv[1], "-w") == 0) {
+        interval = (argc >= 3) ? atoi(argv[2]) : 2;
+        if (interval <= 0) {
+            interval = 2;
+        }
+    }
+
+    /* Normal mode: no "-w" flag, just run once and exit */
+    if (interval == 0) {
+        int flagged = run_audit();
+        return (flagged > 0) ? 2 : 0;
+    }
+
+    /* Watch mode: register basic Ctrl+C handler and loop */
+    signal(SIGINT, on_sigint);
+
+    while (keep_running) {
+        /* Clear screen */
+        printf("\033[H\033[2J");
+		fflush(stdout);
+
+        run_audit();
+        printf("Refreshing every %d sec. Press Ctrl+C to quit.\n", interval);
+		fflush(stdout);
+
+        sleep(interval);
+    }
+
+    printf("\nExited cleanly.\n");
+    return 0;
 }
