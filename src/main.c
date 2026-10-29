@@ -6,6 +6,7 @@
 #include "crawler.h"
 #include "exe_audit.h"
 #include "maps_audit.h"
+#include "env_audit.h"
 
 #define	MAX_PROC_IDS 4096
 #define PATH_BUF_SIZE 1024
@@ -58,9 +59,11 @@ int main(void)
 	char exe_buf[PATH_BUF_SIZE];
 	int exe_status;
 	int maps_mask;
+	int env_mask;
 	int is_suspicious;
 	const char *disk_str;
 	char mem_str[32];
+	char env_str[32];
 	
 	printf("Memory Integrity & Linux Process Auditor\n");
 
@@ -75,6 +78,7 @@ int main(void)
 	skip_count = 0;
 
 	printf("proc-sentry: Linux Process & Memory Integrity Table\n");
+	printf("%-7s  %-12s  %-10s  %-12s  %-12s  %s\n", "PID", "STATUS", "DISK LINK", "MEMORY", "ENV INJECT", "EXE PATH");
 
 	for (i = 0; i < total_proc_ids; i++) {
 		pid = pids[i];
@@ -82,6 +86,7 @@ int main(void)
 		disk_str = "ok";
 		mem_str[0] = '\0';
 		exe_buf[0] = '\0';
+		env_str[0] = '\0';
 
 		/* 1. stage 1: file link inspection */
 		exe_status = audit_process_exe(pid, exe_buf, sizeof(exe_buf));
@@ -89,8 +94,11 @@ int main(void)
 		/* 2. virtual memory layout inspection */
 		maps_mask = audit_process_maps(pid);
 
+		/* env variable injection vectors */
+		env_mask = audit_process_env(pid);
+
 		/* kernel threads & fast-exiting processes may not flag */
-		if (exe_status < 0 && maps_mask < 0) {
+		if (exe_status < 0 && maps_mask < 0 && env_mask < 0) {
 			skip_count++;
 			printf("%-7ld  %-12s  %-10s  %-12s  %s\n",
                    (long)pid, "[SKIP]", "N/A", "N/A", "<kernel/exited>");
@@ -129,15 +137,34 @@ int main(void)
             strcpy(mem_str, "ERR");
         }
 
-		if (is_suspicious) {
+		/* Evaluate Environment Integrity */
+        if (env_mask > 0) {
+            is_suspicious = 1;
+            if (env_mask & ENV_ANOMALY_PRELOAD) {
+                strcpy(env_str, "LD_PRELOAD");
+            } else if (env_mask & ENV_ANOMALY_LIBPATH) {
+                strcpy(env_str, "LD_LIB_PATH");
+            } else if (env_mask & ENV_ANOMALY_AUDIT) {
+                strcpy(env_str, "LD_AUDIT");
+            } else {
+                strcpy(env_str, "ANOMALY");
+            }
+        } else if (env_mask == 0) {
+            strcpy(env_str, "OK");
+        } else {
+            strcpy(env_str, "ERR");
+        }
+
+		/* Emit Row */
+        if (is_suspicious) {
             flagged_count++;
-            printf("%-7ld  %-12s  %-10s  %-12s  %s\n",
-                   (long)pid, "[SUSPICIOUS]", disk_str, mem_str,
+            printf("%-7ld  %-12s  %-10s  %-12s  %-12s  %s\n",
+                   (long)pid, "[SUSPICIOUS]", disk_str, mem_str, env_str,
                    exe_buf[0] != '\0' ? exe_buf : "<unresolved>");
         } else {
             ok_count++;
-            printf("%-7ld  %-12s  %-10s  %-12s  %s\n",
-                   (long)pid, "[OK]", disk_str, mem_str,
+            printf("%-7ld  %-12s  %-10s  %-12s  %-12s  %s\n",
+                   (long)pid, "[OK]", disk_str, mem_str, env_str,
                    exe_buf[0] != '\0' ? exe_buf : "<unresolved>");
         }
 	}
